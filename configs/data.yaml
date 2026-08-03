@@ -1,0 +1,14 @@
+required_columns:
+  - article_id
+  - title
+  - publish_time
+  - source
+  - content
+optional_columns:
+  - entity
+  - industry
+  - event_label
+  - polarity_label
+  - impact_analysis
+  - duplicate_flag
+

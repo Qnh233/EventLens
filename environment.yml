@@ -1,0 +1,15 @@
+name: eventlens
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pandas
+  - openpyxl
+  - scikit-learn
+  - lightgbm
+  - pydantic>=2
+  - pyyaml
+  - pytest
+  - joblib
+  - pip
+

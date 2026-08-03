@@ -1,0 +1,38 @@
+source_authority:
+  official_keywords: ["证监会", "上交所", "深交所", "北交所", "交易所", "监管", "公告"]
+  company_keywords: ["公司公告", "官方网站", "官网", "年报", "半年报", "季报"]
+  mainstream_keywords: ["证券时报", "上海证券报", "中国证券报", "证券日报", "财新", "第一财经"]
+  general_keywords: ["新华社", "人民日报", "央视", "经济日报"]
+  self_media_keywords: ["雪球", "股吧", "自媒体", "公众号"]
+scores:
+  official: 1.00
+  company: 0.90
+  mainstream: 0.75
+  general: 0.55
+  self_media: 0.35
+  unknown: 0.35
+  low_quality: 0.15
+credibility_weights:
+  source_authority: 0.30
+  multi_source_consistency: 0.25
+  official_endorsement: 0.25
+  content_completeness: 0.10
+  recency_score: 0.10
+severity_baseline:
+  财务造假: 0.95
+  退市风险: 0.95
+  监管处罚: 0.78
+  重大诉讼: 0.72
+  业绩预告: 0.55
+  股权质押: 0.50
+  高管变动: 0.42
+  技术突破: 0.40
+  供应链变化: 0.58
+  政策影响: 0.62
+  其他事件: 0.35
+alert_thresholds:
+  credibility_high: 0.75
+  credibility_medium: 0.45
+  severity_high: 0.65
+  severity_medium: 0.35
+

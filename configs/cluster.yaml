@@ -1,0 +1,10 @@
+threshold: 0.72
+weights:
+  text_similarity: 0.35
+  entity_match: 0.25
+  event_type_match: 0.15
+  time_close: 0.15
+  key_token_overlap: 0.10
+time_window_days: 7
+top_k: 20
+
