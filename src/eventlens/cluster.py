@@ -8,7 +8,8 @@ from pathlib import Path
 
 from eventlens.config import load_settings
 from eventlens.preprocess import clean_text, text_tokens
-from eventlens.schema import ArticleRecord, EventCluster, EventPrediction
+from eventlens.schema import ArticleRecord, ClusterDecision, EventCluster, EventPrediction
+from eventlens.semantic_similarity import SemanticPairScorer
 
 
 @dataclass
@@ -36,17 +37,101 @@ def cluster_events(
     articles: list[ArticleRecord],
     predictions: list[EventPrediction],
     config: dict | None = None,
+    semantic_scorer: SemanticPairScorer | None = None,
+    decision_sink: list[ClusterDecision] | None = None,
 ) -> list[EventCluster]:
     cfg = config or load_cluster_config()
+    semantic_cfg = cfg.get("semantic", {"enabled": False})
     article_map = {article.article_id: article for article in articles}
     active = [pred for pred in predictions if pred.has_event]
     uf = UnionFind(parent={pred.article_id: pred.article_id for pred in active})
+    candidates: list[tuple[str, EventPrediction, EventPrediction, float]] = []
 
     for i, left in enumerate(active):
         for right in active[i + 1 :]:
-            score = multi_factor_similarity(article_map[left.article_id], left, article_map[right.article_id], right, cfg)
+            left_article = article_map[left.article_id]
+            right_article = article_map[right.article_id]
+            score = multi_factor_similarity(left_article, left, right_article, right, cfg)
             if score >= cfg["threshold"]:
                 uf.union(left.article_id, right.article_id)
+                _record_decision(
+                    decision_sink,
+                    left,
+                    right,
+                    rule_score=score,
+                    semantic_score=None,
+                    merged=True,
+                    method="rule",
+                    reason="rule_threshold_met",
+                )
+            elif (
+                semantic_cfg.get("enabled", False)
+                and semantic_scorer is not None
+                and score >= semantic_cfg["candidate_threshold"]
+                and _same_subject(left_article, right_article)
+                and _within_time_window(
+                    left_article.publish_time,
+                    right_article.publish_time,
+                    cfg["time_window_days"],
+                )
+            ):
+                pair_id = _pair_id(left.article_id, right.article_id)
+                candidates.append((pair_id, left, right, score))
+
+    selected = _top_k_candidates(candidates, cfg.get("top_k", 20))
+    if selected:
+        semantic_pairs = [
+            (
+                pair_id,
+                _semantic_text(
+                    article_map[left.article_id],
+                    left,
+                    semantic_cfg["max_text_chars"],
+                ),
+                _semantic_text(
+                    article_map[right.article_id],
+                    right,
+                    semantic_cfg["max_text_chars"],
+                ),
+            )
+            for pair_id, left, right, _ in selected
+        ]
+        try:
+            semantic_scores = semantic_scorer.score_pairs(semantic_pairs)
+        except Exception as exc:
+            if not semantic_cfg.get("fail_open", True):
+                raise
+            for _, left, right, rule_score in selected:
+                _record_decision(
+                    decision_sink,
+                    left,
+                    right,
+                    rule_score=rule_score,
+                    semantic_score=None,
+                    merged=False,
+                    method="semantic_fallback",
+                    reason=f"semantic_unavailable:{type(exc).__name__}",
+                )
+        else:
+            for pair_id, left, right, rule_score in selected:
+                semantic_score = semantic_scores[pair_id]
+                merged = semantic_score >= semantic_cfg["similarity_threshold"]
+                if merged:
+                    uf.union(left.article_id, right.article_id)
+                _record_decision(
+                    decision_sink,
+                    left,
+                    right,
+                    rule_score=rule_score,
+                    semantic_score=semantic_score,
+                    merged=merged,
+                    method="semantic",
+                    reason=(
+                        "semantic_threshold_met"
+                        if merged
+                        else "semantic_threshold_not_met"
+                    ),
+                )
 
     groups: dict[str, list[EventPrediction]] = {}
     for pred in active:
@@ -73,6 +158,88 @@ def cluster_events(
             )
         )
     return clusters
+
+
+def _top_k_candidates(
+    candidates: list[tuple[str, EventPrediction, EventPrediction, float]],
+    top_k: int,
+) -> list[tuple[str, EventPrediction, EventPrediction, float]]:
+    by_left: dict[str, list[tuple[str, EventPrediction, EventPrediction, float]]] = {}
+    for candidate in candidates:
+        by_left.setdefault(candidate[1].article_id, []).append(candidate)
+    selected: list[tuple[str, EventPrediction, EventPrediction, float]] = []
+    for rows in by_left.values():
+        rows.sort(key=lambda row: (-row[3], row[0]))
+        selected.extend(rows[: max(1, top_k)])
+    selected.sort(key=lambda row: row[0])
+    return selected
+
+
+def _same_subject(left: ArticleRecord, right: ArticleRecord) -> bool:
+    left_subject = _subject_key(left)
+    return bool(left_subject and left_subject == _subject_key(right))
+
+
+def _subject_key(article: ArticleRecord) -> str:
+    if article.task_scope.startswith("industry") or article.industry_code:
+        return article.industry_code or article.industry
+    return article.trading_code or article.entity
+
+
+def _within_time_window(
+    left: datetime | None,
+    right: datetime | None,
+    window_days: int,
+) -> bool:
+    if left is None or right is None:
+        return False
+    return abs((left - right).total_seconds()) <= window_days * 86400
+
+
+def _semantic_text(
+    article: ArticleRecord,
+    prediction: EventPrediction,
+    max_chars: int,
+) -> str:
+    text = (
+        f"标题：{clean_text(article.title)}\n"
+        f"证据：{clean_text(prediction.evidence_sentence)}\n"
+        f"正文：{clean_text(article.content)}"
+    )
+    return text[:max_chars]
+
+
+def _pair_id(left_article_id: str, right_article_id: str) -> str:
+    left, right = sorted((left_article_id, right_article_id))
+    return f"{left}::{right}"
+
+
+def _record_decision(
+    sink: list[ClusterDecision] | None,
+    left: EventPrediction,
+    right: EventPrediction,
+    *,
+    rule_score: float,
+    semantic_score: float | None,
+    merged: bool,
+    method: str,
+    reason: str,
+) -> None:
+    if sink is None:
+        return
+    sink.append(
+        ClusterDecision(
+            left_article_id=left.article_id,
+            right_article_id=right.article_id,
+            rule_score=round(rule_score, 6),
+            semantic_score=(
+                round(semantic_score, 6) if semantic_score is not None else None
+            ),
+            merged=merged,
+            method=method,
+            reason=reason,
+        )
+    )
 
 
 def multi_factor_similarity(

@@ -12,12 +12,17 @@ class ArticleRecord(BaseModel):
     publish_time: datetime | None = None
     source: str = ""
     content: str = ""
+    trading_code: str = ""
     entity: str = ""
+    industry_code: str = ""
     industry: str = ""
     event_label: str | None = None
     polarity_label: str | None = None
     impact_analysis: str | None = None
     duplicate_flag: str | int | bool | None = None
+    duplication_id: str | None = None
+    task_scope: str = "main_task"
+    sheet_name: str | None = None
     source_row: int | None = None
     extra: dict[str, Any] = Field(default_factory=dict)
 
@@ -30,12 +35,16 @@ class EventPrediction(BaseModel):
     classifier_confidence: float = 0.0
     polarity_confidence: float = 0.0
     event_subject: str | None = None
+    event_subject_confidence: float = 0.0
+    event_subject_method: str = ""
     event_time: datetime | None = None
     impact_target: str | None = None
     impact_direction: str = "中性"
     impact_description: str = ""
     evidence_sentence: str = ""
     extraction_confidence: float = 0.0
+    applied_skill_ids: list[str] = Field(default_factory=list)
+    decision_trace: list[str] = Field(default_factory=list)
 
 
 class EventCluster(BaseModel):
@@ -48,6 +57,16 @@ class EventCluster(BaseModel):
     representative_article_id: str
     representative_evidence: str = ""
     cluster_confidence: float = 0.0
+
+
+class ClusterDecision(BaseModel):
+    left_article_id: str
+    right_article_id: str
+    rule_score: float
+    semantic_score: float | None = None
+    merged: bool
+    method: str
+    reason: str
 
 
 class CredibilityBreakdown(BaseModel):
@@ -74,6 +93,9 @@ class AlertOutput(BaseModel):
     evidence_sources: list[dict[str, str]]
     push_reason: str
     related_article_count: int
+    delivery_allowed: bool = True
+    delivery_gate_reason: str = ""
+    claim_evidence_coverage: float = 0.0
     is_throttled_update: bool = False
     dormant: bool = False
 

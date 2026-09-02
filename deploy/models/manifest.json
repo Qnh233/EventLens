@@ -1,0 +1,18 @@
+{
+  "mode": "cpu_lite_no_labeled_subject_fields",
+  "config_version": "0.7.0",
+  "models": {
+    "company": {
+      "train_count": 1525,
+      "label_count": 44,
+      "bytes": 76784460,
+      "sha256": "64c3ed47d9854d229c153863c9bac01081fb98b0236516c7d03b3f77a4789b07"
+    },
+    "industry": {
+      "train_count": 556,
+      "label_count": 20,
+      "bytes": 36664860,
+      "sha256": "4730b9b5f7471886da90c7fc91acac1edb4d48960be3c09d0fbd47c546210b04"
+    }
+  }
+}

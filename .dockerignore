@@ -1,0 +1,13 @@
+.git
+.env
+.pytest_cache
+.pytest_tmp
+.tmp_pytest
+__pycache__
+*.pyc
+artifacts
+reports
+tests
+tools
+data/raw/*.xlsx
+data/feedback

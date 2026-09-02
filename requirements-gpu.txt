@@ -1,0 +1,2 @@
+sentence-transformers==5.7.0
+# transformers/torch 由 GPU 环境按 CUDA 版本安装；监督事件分类复用该依赖。

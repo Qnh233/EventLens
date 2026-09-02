@@ -1,0 +1,20 @@
+{
+  "models": {
+    "bge-m3": {
+      "purpose": "EventLens 可选语义检索 / 聚类 / Gold exemplar 增强模型",
+      "modelscope_id": "BAAI/bge-m3",
+      "huggingface_id": "BAAI/bge-m3",
+      "target_dir": "artifacts/models/bge-m3",
+      "runtime_required": false,
+      "approx_size": "4.6GB"
+    },
+    "bge-reranker-v2-m3": {
+      "purpose": "历史候选事件 reranker 实验复现",
+      "modelscope_id": "AI-ModelScope/bge-reranker-v2-m3",
+      "huggingface_id": "BAAI/bge-reranker-v2-m3",
+      "target_dir": "artifacts/models/bge-reranker-v2-m3",
+      "runtime_required": false,
+      "approx_size": "2.3GB"
+    }
+  }
+}

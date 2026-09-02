@@ -179,3 +179,18 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+# EventLens sensitive/local data and generated artifacts
+data/raw/
+data/processed/
+data/feedback/
+data/governance/*
+!data/governance/dataset_registry.example.json
+artifacts/
+/.pytest_tmp
+/.tmp_pytest
+/reports
+/submission
+/tests
+/tests
+/tests

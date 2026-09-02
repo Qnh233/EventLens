@@ -1,6 +1,12 @@
 from datetime import datetime
 
-from eventlens.evaluation import evaluate_split, group_holdout_split, render_generalization_report, time_split
+from eventlens.evaluation import (
+    duplication_holdout_split,
+    evaluate_split,
+    group_holdout_split,
+    render_generalization_report,
+    time_split,
+)
 from eventlens.schema import ArticleRecord
 
 
@@ -20,6 +26,22 @@ def test_generalization_splits_are_non_empty():
     assert "泛化评测报告" in render_generalization_report(articles)
 
 
+def test_duplication_split_keeps_same_group_together():
+    articles = [
+        ArticleRecord(article_id="A1", duplication_id="D1"),
+        ArticleRecord(article_id="A2", duplication_id="D1"),
+        ArticleRecord(article_id="A3", duplication_id="D2"),
+        ArticleRecord(article_id="A4"),
+        ArticleRecord(article_id="A5"),
+    ]
+
+    train, valid = duplication_holdout_split(articles, holdout_ratio=0.4, seed=7)
+
+    train_groups = {row.duplication_id for row in train if row.duplication_id}
+    valid_groups = {row.duplication_id for row in valid if row.duplication_id}
+    assert not train_groups & valid_groups
+
+
 def test_evaluate_split_returns_real_metrics():
     train = [
         ArticleRecord(article_id="T1", title="收到监管处罚", content="公司违规被处罚", event_label="监管处罚"),
@@ -37,5 +59,7 @@ def test_evaluate_split_returns_real_metrics():
     assert result["status"] == "ok"
     assert 0.0 <= result["accuracy"] <= 1.0
     assert 0.0 <= result["macro_f1"] <= 1.0
+    assert result["closed_set_coverage"] == 1.0
+    assert result["unseen_valid_labels"] == []
     assert len(result["confusion_matrix"]) == len(result["labels"])
 

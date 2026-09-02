@@ -1,0 +1,39 @@
+{
+  "deployment_profile": "competition_cpu_lite_offline_models",
+  "runtime_model_download_required": false,
+  "models": [
+    {
+      "name": "company_event_classifier",
+      "type": "scikit-learn joblib",
+      "runtime_required": true,
+      "bundled": true,
+      "path": "deploy/models/company/baseline.joblib",
+      "sha256": "64c3ed47d9854d229c153863c9bac01081fb98b0236516c7d03b3f77a4789b07"
+    },
+    {
+      "name": "industry_event_classifier",
+      "type": "scikit-learn joblib",
+      "runtime_required": true,
+      "bundled": true,
+      "path": "deploy/models/industry/baseline.joblib",
+      "sha256": "4730b9b5f7471886da90c7fc91acac1edb4d48960be3c09d0fbd47c546210b04"
+    },
+    {
+      "name": "BAAI/bge-m3",
+      "type": "embedding foundation model",
+      "runtime_required": false,
+      "bundled": false,
+      "status": "research_enhancement_not_in_competition_runtime",
+      "revision": "5617a9f61b028005a4858fdac845db406aefb181",
+      "note": "Used in research/OOF semantic experiments and optional enhanced services. The submitted CPU Lite Docker path never loads it."
+    },
+    {
+      "name": "DeepSeek hard-case expert",
+      "type": "external OpenAI-compatible API model",
+      "runtime_required": false,
+      "bundled": false,
+      "status": "shadow_research_only",
+      "note": "No local LLM weights were used by the submitted runtime. The competition CPU Lite path never calls the API."
+    }
+  ]
+}

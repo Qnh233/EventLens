@@ -1,15 +1,25 @@
 app:
   name: EventLens
-  version: 0.2.0
+  version: 0.7.0
   timezone: Asia/Shanghai
 
 paths:
-  raw_train: data/raw/train.xlsx
-  raw_test: data/raw/test.xlsx
+  raw_train: data/raw/news_with_tags_train.xlsx
+  raw_test: data/raw/news_without_tags_test.xlsx
+  tagged_train: data/raw/news_with_tags_train.xlsx
+  tagged_test: data/raw/news_with_tags_test.xlsx
+  untagged_train: data/raw/news_without_tags_train.xlsx
+  untagged_test: data/raw/news_without_tags_test.xlsx
+  company_event_schema: data/raw/事件类型_标的.json
+  industry_event_schema: data/raw/事件类型_行业.json
   model_dir: artifacts/models
   output_dir: artifacts/run
   data_profile_report: reports/data_profile.md
   generalization_report: reports/generalization_eval.md
+  lifecycle_ledger: artifacts/ledger/event_lifecycle.jsonl
+  feedback_store: data/feedback/feedback.jsonl
+  skill_registry: artifacts/skills/registry.jsonl
+  skill_export_dir: artifacts/skills/exported
 
 model:
   random_state: 42
@@ -19,12 +29,22 @@ model:
       analyzer: char_wb
       ngram_range: [2, 4]
       min_df: 1
-      max_features: 60000
+      max_features: 30000
   event_classifier:
-    algorithm: logistic_regression
+    algorithm: sgd_logistic
+    solver: saga
+    max_iter: 500
+    tol: 0.001
+    class_weight: balanced
+    alpha: 0.0001
     no_event_labels: ["无事件", "无", "其他", "未识别"]
   polarity_classifier:
-    algorithm: logistic_regression
+    algorithm: sgd_logistic
+    solver: saga
+    max_iter: 500
+    tol: 0.001
+    class_weight: balanced
+    alpha: 0.0001
     fallback_label: "中性"
 
 cluster:
@@ -37,6 +57,19 @@ cluster:
     key_token_overlap: 0.10
   time_window_days: 7
   top_k: 20
+  semantic:
+    enabled: false
+    fail_open: true
+    candidate_threshold: 0.45
+    similarity_threshold: 0.92093
+    max_text_chars: 1200
+    cache_path: artifacts/cache/bge_embeddings.sqlite3
+    embedding:
+      base_url: http://127.0.0.1:11434
+      model: bge-m3:latest
+      timeout_seconds: 180
+      batch_size: 2
+      num_gpu: 0
 
 credibility:
   source_authority:
@@ -81,3 +114,145 @@ evaluation:
   time_train_ratio: 0.8
   group_holdout_ratio: 0.2
   random_state: 42
+
+duplicate_pairs:
+  negative_ratio: 1.0
+  max_positive_pairs_per_group: 20
+  time_window_days: 7
+  max_text_chars: 1200
+  seed: 42
+  subject_lead_chars: 240
+  min_subject_alias_chars: 2
+  require_resolved_subject_for_negatives: true
+
+duplicate_pair_evaluation:
+  calibration_ratio: 0.5
+  seed: 42
+
+cluster_benchmark:
+  max_articles: 1000
+  candidate_thresholds: [0.40, 0.45, 0.50]
+  semantic_thresholds: [0.90, 0.92, 0.94]
+  top_ks: [5, 10, 20]
+  minimum_b_cubed_f1_gain: 0.02
+  minimum_pairwise_recall_gain: 0.05
+  stress_sample_size: 10000
+
+event_retrieval:
+  top_k: 3
+  max_query_chars: 1600
+  sample_limit: 20
+  embedding:
+    base_url: http://127.0.0.1:11434
+    model: bge-m3:latest
+    timeout_seconds: 60
+    batch_size: 8
+
+native_embedding:
+  model: BAAI/bge-m3
+  device: cuda
+  batch_size: 16
+  normalize_embeddings: true
+  cache_folder: null
+  local_files_only: true
+
+embedding_export:
+  max_content_chars: 1600
+  chunk_size: 1024
+  output_root: artifacts/embeddings
+
+subject_routing:
+  max_query_chars: 1600
+  min_alias_chars: 2
+  company:
+    top_k: 3
+    exact_alias_hard_route: true
+    bge_hard_route: true
+    score_threshold: 0.426251
+    margin_threshold: 0.035125
+  industry:
+    top_k: 3
+    exact_alias_hard_route: false
+    bge_hard_route: false
+    score_threshold: 1.0
+    margin_threshold: 1.0
+
+hard_examples:
+  subject_margin_threshold: 0.05
+  event_margin_threshold: 0.05
+  max_examples: 5000
+
+candidate_edge_evaluation:
+  minimum_eligible_recall: 0.95
+
+lifecycle:
+  official_authority_threshold: 0.95
+  company_authority_threshold: 0.85
+  mainstream_authority_threshold: 0.70
+  corroborated_source_count: 2
+  base_evidence_gain: 0.18
+  independent_source_bonus: 0.07
+  official_confirmation_bonus: 0.25
+  clarification_confidence_bonus: 0.05
+  dispute_confidence_factor: 0.70
+  support_keywords: ["确认", "属实", "正式", "决定书", "问询函", "立案", "处罚"]
+  refutation_keywords: ["澄清", "不实", "否认", "辟谣", "失实"]
+  escalation_keywords: ["扩大", "升级", "持续发酵", "新增损失", "进一步影响"]
+  resolution_keywords: ["处置完成", "结案", "执行完毕", "恢复正常", "风险解除"]
+
+learning:
+  low_confidence_threshold: 0.65
+  high_severity_threshold: 0.65
+  min_feedback_count: 3
+  min_macro_f1_gain: 0.01
+  max_critical_error_regression: 0.0
+  require_human_approval: true
+
+evidence_control:
+  high_risk_levels: ["高风险", "高价值机会", "高关注", "待核实重点关注"]
+  minimum_high_risk_independent_sources: 2
+  official_bypass_authority: 0.95
+
+runtime_control:
+  min_workers: 1
+  max_workers: 4
+  scale_up_queue_depth: 500
+  scale_down_queue_depth: 50
+  degraded_after_failures: 3
+  stop_after_failures: 5
+  retry_backoff_seconds: [30, 120, 300]
+
+challenge_evaluation:
+  rare_event_max_train_count: 20
+  long_tail_source_max_train_count: 5
+  long_text_percentile: 0.75
+
+agent_expert:
+  enabled: false
+  provider: local_transformers
+  model: Qwen/Qwen2.5-3B-Instruct
+  base_url: ""
+  api_key_env: DEEPSEEK_API_KEY
+  temperature: 0.0
+  max_tokens: 256
+  max_steps: 4
+  max_content_chars: 4000
+  trigger_confidence_max: 0.65
+  trigger_subject_margin_max: 0.05
+
+transformer_event:
+  model: hfl/chinese-macbert-base
+  max_length: 384
+  max_content_chars: 1800
+  batch_size: 16
+  epochs: 6
+  learning_rate: 0.00002
+  weight_decay: 0.01
+  validation_ratio: 0.2
+  warmup_ratio: 0.1
+  label_smoothing: 0.05
+  class_weight_power: 0.5
+  early_stopping_patience: 2
+  include_subject_fields: false
+  company_gate_macro_f1: 0.78
+  industry_gate_macro_f1: 0.85

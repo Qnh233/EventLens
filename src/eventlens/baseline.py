@@ -8,6 +8,7 @@ import joblib
 from sklearn.dummy import DummyClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import SGDClassifier
 from sklearn.pipeline import Pipeline
 
 from eventlens.config import load_settings
@@ -89,7 +90,13 @@ def train_baseline(articles: list[ArticleRecord], config: dict | None = None) ->
     event_texts = [build_model_text(a, max_chars) for a, _ in event_samples]
     event_labels = [label for _, label in event_samples]
     event_algorithm = cfg["event_classifier"].get("algorithm", "logistic_regression")
-    event_model = _fit_text_classifier(event_texts, event_labels, cfg, event_algorithm)
+    event_model = _fit_text_classifier(
+        event_texts,
+        event_labels,
+        cfg,
+        event_algorithm,
+        cfg["event_classifier"],
+    )
 
     polarity_samples = [(a, a.polarity_label) for a in articles if a.polarity_label]
     polarity_model = None
@@ -97,7 +104,13 @@ def train_baseline(articles: list[ArticleRecord], config: dict | None = None) ->
         polarity_texts = [build_model_text(a, max_chars) for a, _ in polarity_samples]
         polarity_labels = [normalize_polarity(label) for _, label in polarity_samples]
         polarity_algorithm = cfg["polarity_classifier"].get("algorithm", "logistic_regression")
-        polarity_model = _fit_text_classifier(polarity_texts, polarity_labels, cfg, polarity_algorithm)
+        polarity_model = _fit_text_classifier(
+            polarity_texts,
+            polarity_labels,
+            cfg,
+            polarity_algorithm,
+            cfg["polarity_classifier"],
+        )
 
     return TrainedBaseline(event_model=event_model, polarity_model=polarity_model, config=cfg)
 
@@ -147,6 +160,7 @@ def _fit_text_classifier(
     labels: list[str],
     cfg: dict,
     algorithm: str,
+    classifier_cfg: dict,
 ) -> Pipeline | DummyClassifier:
     if len(set(labels)) == 1:
         dummy = DummyClassifier(strategy="constant", constant=labels[0])
@@ -166,10 +180,22 @@ def _fit_text_classifier(
             random_state=cfg.get("random_state", 42),
             verbose=-1,
         )
+    elif algorithm == "sgd_logistic":
+        classifier = SGDClassifier(
+            loss="log_loss",
+            alpha=float(classifier_cfg.get("alpha", 0.0001)),
+            max_iter=int(classifier_cfg.get("max_iter", 500)),
+            tol=float(classifier_cfg.get("tol", 0.001)),
+            class_weight=classifier_cfg.get("class_weight", "balanced"),
+            random_state=cfg.get("random_state", 42),
+            average=True,
+        )
     else:
         classifier = LogisticRegression(
-            max_iter=1000,
-            class_weight="balanced",
+            solver=classifier_cfg.get("solver", "saga"),
+            max_iter=int(classifier_cfg.get("max_iter", 500)),
+            tol=float(classifier_cfg.get("tol", 0.001)),
+            class_weight=classifier_cfg.get("class_weight", "balanced"),
             random_state=cfg.get("random_state", 42),
         )
     pipe = Pipeline(

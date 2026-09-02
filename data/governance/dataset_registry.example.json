@@ -1,0 +1,24 @@
+[
+  {
+    "dataset_id": "eventlens-public-example",
+    "file_name": "news_without_tags_train.xlsx",
+    "data_origin": "public",
+    "license_or_authorization": "填写公开数据许可或来源说明",
+    "allowed_usage": ["train", "evaluate", "demo", "export"],
+    "desensitization_version": null,
+    "owner": "填写负责人",
+    "checksum": "运行登记脚本后填写 SHA-256",
+    "registered_at": "2026-08-04T00:00:00+08:00"
+  },
+  {
+    "dataset_id": "eventlens-internal-desensitized-example",
+    "file_name": "填写内部脱敏数据文件名",
+    "data_origin": "internal_desensitized",
+    "license_or_authorization": "填写内部授权编号",
+    "allowed_usage": ["train", "evaluate"],
+    "desensitization_version": "填写脱敏规则版本",
+    "owner": "填写负责人",
+    "checksum": "运行登记脚本后填写 SHA-256",
+    "registered_at": "2026-08-04T00:00:00+08:00"
+  }
+]
